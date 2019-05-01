@@ -1,0 +1,283 @@
+% This code was created in MATLAB to explore optimal resource allocations for vaccine treatments under public funding
+% following the introduction of a competing treatment manufacturer, exploring whether competition can drive down prices and result
+% in a higher distribution among 2 age groups.
+
+% This code was built for thesis project; a multi-group version was created as well but is not be provided in the below script.
+% Please connect with author Kevin Fatyas for more details if interested in exploring further. Thank you.
+
+function distribute2G
+
+%------------------------------------------------------------
+% Define terms
+%------------------------------------------------------------
+% Size of age groups G = BASED ON STATS CAN DATA * 1/3
+% G(2): 55-64 = 2,000,000 - modified, needs Stats Canada
+% G(3): 65-70 = 637,000; 
+% G(1): 50-54 = 1,000,000 - made up -needs Stats Canada
+% We know G(3) is currently covered by the 2016 Ontario Budget
+
+% STATS CAN DATA (in thousands, 2015) 
+% http://www.statcan.gc.ca/tables-tableaux/sum-som/l01/cst01/demo10a-eng.htm
+% 50-54:  2763.7 *1/3 =  921.2
+% 55-59:  2602.4 *1/3 =  867.5
+% 60-64:  2234.2 *1/3 =  744.7
+% 65-69:  1909.8 *1/3 =  636.6
+% 70-74:  1371.4 *1/3 =  457.1
+% 75-79:   998.5 *1/3 =  332.8
+% 80-84:   742.9 *1/3 =  247.6
+% 85-89:   478.3 *1/3 =  159.4
+% 90+:     280.2 *1/3 =   93.4
+
+G(1)=2533*10^3
+G(2)=637*10^3;
+
+disp('size of groups scaled by \alpha=1000')
+G/1000
+sum(G);
+
+% Define B = total budget in one year
+% Needs further clarification since total budget is 211 billion for all 
+% Health Care; 
+            % 10^8 is 0.001%.
+
+BB=6.8*10^8; 
+
+% We are currently only running through one possible k value. B(i) needs to
+% be updated accordingly dependent on how we wish to alocate what
+% percentage of each vaccine goes to which company. We should be totally up
+% to sum(%*k) = 1
+for k=1:10
+    
+% B(i) - Budget for each product i (i from 1 to 2);
+B(1)=max(0.1*k*BB,0);
+B(2)=max((1-0.1*k)*BB,0);
+
+% B is given as the vector of budgets B=[B(1),B(2)]for each vacc type
+disp('size of budget for each group')
+B
+
+%p(i) - price of each vaccine from company i. NEW: Cost ???, ZOSTA: Cost 170
+disp('vaccine prices')
+p=[210,170] 
+
+%u units of resource = number of vaccine doses available as a Budget/price
+%estimate.
+
+for i=1:2 %number of Groups
+    for j=1:2 %number of Vaccines
+        u(i,j)=floor(B(i)/p(j));
+    end
+end
+
+disp('# of doses for each group, of each vaccine')
+u
+
+%u=floor(B/p) % the size of u is in real number of doses (i.e, not scaled!)
+
+%size of a unit of vaccine to allocate: 1 unit = 1000 doses
+%then the allocation units for each type are:
+alpha = 1000
+
+for i=1:2 %number of Groups
+    for j=1:2 %number of Vaccines
+        w_total(i,j)=floor(u(i,j)/alpha);
+    end
+end
+
+disp('scaled # of doses per group per vacc')
+w_total
+
+% The vector w holds the scaled number of doses
+
+% define efficacy. NEW: Eff ???, ZOSTA: Eff 64%
+disp('efficacy of each vaccine')
+e=[0.9;0.64]  
+
+%------------------------------------------------------------
+% STAGES
+%------------------------------------------------------------
+
+% Starting at stage T = 2, since we're working with 2 groups.
+for i=1:2
+    T=3-i
+
+%revenue computation for T=2 = in group of 65-70 yrs old:
+
+% Define the vector of resources by size of group:
+w=[min(G(T)/alpha,w_total(T,1)),min(G(T)/alpha,w_total(T,2))]
+
+clear xt1 xt2
+
+xt1=0:1:w(1);
+xt2=0:1:w(2);
+
+xt=[xt1,xt2]; 
+
+ clear rev  % otherwise we bring over the updated revenue from the previous 
+           % stage, which we don't want.
+
+for s=1:(w(1)+1)
+    for t=1:((w(2)+2)-s)
+         rev(s,t)=e(1)*xt1(s) + e(2)*xt2(t);
+    end 
+end
+
+disp('rows+cols of rev matrix should = size of xt(2)')
+%rev
+size(xt)
+size(rev)
+
+
+[M,I] = max(rev(:));
+f(i)=M;
+[I_row, I_col] = ind2sub(size(rev),I);
+max_vacc1(T,1)=I_row-1
+max_vacc2(T,1)=I_col-1
+
+% resetting our resources: 
+disp('Reset resources after every allocation in a group')
+w_total(T,:)=max(w_total(T,:)-[max_vacc1(T,1),max_vacc2(T,1)],zeros(1,2))
+
+end
+% From here, we finish the assignments allocated to each group
+
+disp('Final assignments per groups per vaccine')
+mv=[max_vacc1,max_vacc2]
+
+% Percentage of people vaccinated in each group:
+for i=1:2
+    % Percentage of people vaccinated in each group:
+perc_r1(i,k)= sum(mv(i,:)*alpha)/sum(G); 
+    % Percentage of people vaccinated in each group accounting for efficacy:
+perc_effr1(i,k)= (dot(mv(i,:),e)*alpha)/sum(G);  
+    % Full demand in each group
+g(i)=G(i)/sum(G);
+end
+
+sum(g)
+
+%========================
+
+% We now add the 2nd distribution round, to attempt to empty w_total
+
+% So we first reset the G vector = groups sizes - people already vaccinated
+for i=1:2
+   GG(i)= G(i)-sum(mv(i,:)*alpha);
+end
+disp('New sizes of pop groups after 1st distrib round')
+GG
+
+clear mv max_vacc1 max_vacc2
+
+for i=1:2
+    T=3-i
+
+%revenue computation for T=2 = in group of 65-70 yrs old:
+
+% Define the vector of resources by size of group:
+w=[min(GG(T)/alpha,w_total(T,1)),min(GG(T)/alpha,w_total(T,2))]
+
+clear xt1 xt2
+
+xt1=0:1:w(1);
+xt2=0:1:w(2);
+
+xt=[xt1,xt2]; 
+
+ clear rev % otherwise we bring over the updated revenue from the previous 
+           % stage, which we don't want.
+
+for s=1:(w(1)+1)
+    for t=1:((w(2)+2)-s)
+         rev(s,t)=e(1)*xt1(s) + e(2)*xt2(t);
+    end 
+end
+
+disp('rows+cols of rev matrix should = size of xt(2)')
+%rev
+size(xt)
+size(rev)
+
+
+[M,I] = max(rev(:));
+f(i)=M;
+[I_row, I_col] = ind2sub(size(rev),I);
+max_vacc1(T,1)=I_row-1
+max_vacc2(T,1)=I_col-1
+
+% resetting our resources: 
+disp('Reset resources after every allocation in a group')
+w_total(T,:)=max(w_total(T,:)-[max_vacc1(T,1),max_vacc2(T,1)],zeros(1,2))
+
+end
+% From here, we finish the assignments allocated to each group
+
+disp('Final assignments per groups per vaccine')
+mv=[max_vacc1,max_vacc2]
+
+% Percentage of people vaccinated in each group:
+for i=1:2
+    % Percentage of people vaccinated in each group:
+perc_r2(i,k)= sum(mv(i,:)*alpha)/sum(G); 
+    % Percentage of people vaccinated in each group accounting for efficacy:
+perc_effr2(i,k)= (dot(mv(i,:),e)*alpha)/sum(G);  
+end
+
+
+
+%==============================
+
+for i=1:2
+    perc(i,k)=perc_r1(i,k)+perc_r2(i,k);
+    perc_eff(i,k)=perc_effr1(i,k)+perc_effr2(i,k);
+end
+
+disp('coverage with efficacy per group')
+perc_eff
+
+end   
+% --------------------------------------------- End of Stage Computations
+
+%------------------------------------------------------------
+% PLOTS
+%------------------------------------------------------------
+
+%bar plot of coverage per age group
+
+
+figure
+bar(perc)
+ax=gca;
+%axis([0 1 0 1]);
+set(ax, 'XTickLabel', {'G1=55-64','G2=65-70'});
+title('2-Group coverage with 2 vaccine types')
+
+
+figure
+bar(perc_eff)
+ax=gca;
+%axis([0 1 0 1]);
+set(ax, 'XTickLabel', {'G1=55-64','G2=65-70'});
+title('2-Group coverage with 2 vaccine types accounting for efficacy')
+
+% This is the most important plot, as it gives an idea of overall coverage
+% vs. budget
+
+figure
+bar([perc_eff,g'])
+ax=gca;
+%axis([0 1 0 1]);
+set(ax, 'XTickLabel', {'G1=55-64','G2=65-70'});
+title('2-Group coverage with 2 vaccine types accounting for efficacy vs. full demand')
+
+for k=1:10
+overall_cov(k)=(sum(perc_eff(:,k)));
+end
+%round(overall_cov(1),4,'significant')
+ figure
+ kplot=1:1:10
+ plot(kplot,overall_cov)
+ title('Overall coverage vs. Budget distribution')
+
+
+end
