@@ -151,7 +151,7 @@ options = {'style': 'Table Style Dark 10',
                        {'header': 'Price (groups)'},
                        {'header': 'Province (groups)'},
                        {'header': 'Source (groups)'},
-                       ]} #always cdata row count +1
+                       ]} 
 
 # convert to table using above options dictionary
 worksheet.add_table('A1:P22000', options)
