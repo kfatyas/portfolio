@@ -1,0 +1,160 @@
+#---------------------------------------------------------------------------------------------------------------------------
+# Cannabis Acquisition Data Cleanup
+# Author: Kevin Fatyas
+# Data Source: https://surveys-enquetes.statcan.gc.ca/cannabis/
+# 
+# Cleaning Stats Cannabis data for interactive reporting.
+# Sample of interactive report can be located in the below URL:
+# https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
+#---------------------------------------------------------------------------------------------------------------------------
+
+import pandas as pd
+
+# skiprows removes pre-table text, allows us to start with our data features as column headers.
+cdata = pd.read_excel('April1_PRE.xlsm', skiprows=5, na_values=['NA'])
+
+# remove outliers
+cdata = cdata[cdata['Outlier'] != 1]
+
+#---------------------------------------------------------------------------------------------------------------------------
+# Data Manipulation
+#---------------------------------------------------------------------------------------------------------------------------
+
+# change quantity range 1 < x < 99
+cdata['Quantity'] = cdata['Quantity'].where(cdata['Quantity'].between(1, 99))
+cdata = cdata.dropna(subset = ['Quantity'])
+
+# remove columns
+cdata = cdata.drop(['Outlier', 'Consumption', 'Census division', 'Economic region', 'Legal status', 'Census metropolitan area'], axis = 1)
+
+# replace nulls
+# cdata = cdata list(cdata.select_dtypes(include = str))
+cdata['Usage'] = cdata['Usage'].fillna("Not Reported", inplace = False)
+cdata['Source'] = cdata['Source'].fillna("Not Reported", inplace = False)
+cdata['Sex at birth'] = cdata['Sex at birth'].fillna("Not Reported", inplace = False)
+cdata['First time'] = cdata['First time'].fillna("Not Reported", inplace = False)
+
+# replace usage for weekly, monthly, yearly
+cdata['Usage'] = cdata['Usage'].replace(['A few times per week'], 'Weekly')
+cdata['Usage'] = cdata['Usage'].replace(['A few times per month'], 'Monthly')
+cdata['Usage'] = cdata['Usage'].replace(['A few times a year'], 'Yearly')
+
+# replace QC, BC, NB, PEI, NS, NFL, NWT - needed to properly identify provinces on PowerBI maps
+for row in cdata:
+    provinces = cdata['Province'].str.rsplit(" / ", n = 1, expand = True)
+    cdata["Province_ENG"] = provinces[0]
+    cdata['Province_FR'] = provinces[1]
+    break
+
+cdata = cdata.drop(['Province', 'Province_FR'], axis = 1)
+cdata.rename(columns={'Province_ENG': 'Province'}, inplace = True)
+
+# change day/month/year to date format using datetime package
+cdata['Submission Date'] = pd.to_datetime(cdata['Submission Date'], errors='coerce', yearfirst = True)
+cdata['Date Submitted'] =  cdata['Submission Date'].dt.strftime('%Y-%m-%d')
+
+#reorder Date Submitted to front of table
+cols = cdata.columns.tolist() #create list of all existing columns
+n = int(cols.index('Date Submitted')) # define variable for index entry of Data Submitted
+cols = [cols[n]] + cols[:n] + cols[n+1:] # redefine cols to begin with above variable, and then include all other variables.
+cdata = cdata[cols] #apply transformations to dataset
+
+#---------------------------------------------------------------------------------------------------------------------------
+# Create Bins
+# Helps for PowerBI visualizations (instead of manually creating bins within PowerBI)
+#---------------------------------------------------------------------------------------------------------------------------
+
+# 'Date Submitted (bins)'
+cdata['Date Submitted (bins)'] = cdata['Submission Date'].dt.strftime('%Y-%m')
+cdata = cdata.drop(['Submission Date'], axis = 1)
+
+# 'Quantity (groups)'
+cdata['Quantity (groups)'] = cdata['Quantity'].mask(cdata['Quantity'] > 30, 'Over 30g')\
+                                              .mask(cdata['Quantity'] <= 30, 'Between 10g and 30g')\
+                                              .mask(cdata['Quantity'] <= 10, '10g or less')
+
+# 'Price (groups)'
+cdata['Price (groups)'] = cdata['Price'].mask(cdata['Price'] >= 10, 'Above $10')\
+                                        .mask(cdata['Price'] < 10, 'Between $5 and $10')\
+                                        .mask(cdata['Price'] < 5, 'Under $5')
+
+# NOTE: .mask() option works inversely of .where() - .mask() does the job we need in this case, .where() would relabel
+# it such that .where(cdata['Price'] < 5, 'Under $5')) would apply our label to values > 5.
+
+# 'Province (groups)' - BC, Quebec and Ontario stay in tact.
+cdata['Province (groups)'] = cdata['Province'].replace(['Nova Scotia', 'New Brunswick', 'Newfoundland and Labrador', 'Prince Edward Island'], 'Atlantic')\
+                                              .replace(['Manitoba', 'Saskatchewan', 'Alberta'], 'Prairies')\
+                                              .replace(['Yukon', 'Northwest Territories', 'Nunavut'], 'Territories')
+
+# 'Source (groups)'
+for row in cdata:
+    sources = cdata['Source'].str.split("-", n = 1, expand = True)
+    cdata["Source (groups)"] = sources[0]
+    cdata['Source_Discard'] = sources[1]
+    break
+
+cdata['Source (groups)'] = cdata['Source (groups)'].replace(['Other '], 'Illegal Sources')\
+                                                   .replace(['A federal', 'A government'], 'Legal Sources')
+                          
+cdata = cdata.drop(['Source_Discard'], axis = 1)
+
+#---------------------------------------------------------------------------------------------------------------------------
+# Export
+#---------------------------------------------------------------------------------------------------------------------------
+
+# create a pandas Excel writer with "XlsxWriter" - allows for more customization & helps format date and datetime formats
+writer = pd.ExcelWriter('CanAcqCleaned.xlsx',
+                        engine='xlsxwriter',
+                        datetime_format='mmm d yyyy hh:mm:ss',
+                        date_format='mmmm dd yyyy')
+
+# convert df to an xlsxwriter excel object.
+cdata.to_excel(writer, sheet_name='StatsCannabis', header = True, index = False)
+
+# Get the xlsxwriter workbook and worksheet objects in order to set the column
+# widths, to make the dates clearer.
+workbook  = writer.book
+worksheet = writer.sheets['StatsCannabis']
+
+# set column sizes
+worksheet.set_column('A:B', 16) # Date Submitted
+worksheet.set_column('B:C', 15) # Expenditure
+worksheet.set_column('C:D', 12) # Quantity
+worksheet.set_column('D:E', 12) # Price
+worksheet.set_column('E:F', 20) # Purpose
+worksheet.set_column('F:G', 15) # Usage
+worksheet.set_column('G:H', 15) # Source
+worksheet.set_column('H:I', 15) # Sex at birth
+worksheet.set_column('I:J', 15) # First time
+worksheet.set_column('J:K', 20) # Census subdivision
+worksheet.set_column('K:L', 15) # Province
+worksheet.set_column('L:M', 22) # Date Submitted (bins)
+worksheet.set_column('M:N', 20) # Quantity (groups)
+worksheet.set_column('N:O', 20) # Price (groups)
+worksheet.set_column('O:P', 18) # Province (groups)
+worksheet.set_column('P:Q', 16) # #Source (groups)
+                                       
+options = {'style': 'Table Style Dark 10',
+           'columns': [{'header': 'Date Submitted'},
+                       {'header': 'Expenditure'},
+                       {'header': 'Quantity'},
+                       {'header': 'Price'},
+                       {'header': 'Purpose'},
+                       {'header': 'Usage'},
+                       {'header': 'Source'},
+                       {'header': 'Sex at birth'},
+                       {'header': 'First time'},
+                       {'header': 'Census subdivision'},
+                       {'header': 'Province'},
+                       {'header': 'Date Submitted (bins)'},
+                       {'header': 'Quantity (groups)'},
+                       {'header': 'Price (groups)'},
+                       {'header': 'Province (groups)'},
+                       {'header': 'Source (groups)'},
+                       ]} #always cdata row count +1
+
+# convert to table using above ooptions dictionary
+worksheet.add_table('A1:P22000', options)
+    
+# close the pandas Excel writer and output the Excel file.
+writer.save()
