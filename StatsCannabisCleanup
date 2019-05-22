@@ -153,7 +153,7 @@ options = {'style': 'Table Style Dark 10',
                        {'header': 'Source (groups)'},
                        ]} #always cdata row count +1
 
-# convert to table using above ooptions dictionary
+# convert to table using above options dictionary
 worksheet.add_table('A1:P22000', options)
     
 # close the pandas Excel writer and output the Excel file.
