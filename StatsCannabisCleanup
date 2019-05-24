@@ -3,15 +3,15 @@
 # Author: Kevin Fatyas
 # Data Source: https://surveys-enquetes.statcan.gc.ca/cannabis/
 # 
-# Cleaning Stats Cannabis data for interactive reporting.
-# Sample of interactive report can be located in the below URL:
+# Cleaning Stats Cannabis data for interactive reporting using pandas.
+# Sample of interactive report can be located in the below:
 # https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
 #---------------------------------------------------------------------------------------------------------------------------
 
 import pandas as pd
 
 # skiprows removes pre-table text, allows us to start with our data features as column headers.
-cdata = pd.read_excel('April1_PRE.xlsm', skiprows=5, na_values=['NA'])
+cdata = pd.read_csv('May13_PRE.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
 
 # remove outliers
 cdata = cdata[cdata['Outlier'] != 1]
@@ -49,24 +49,14 @@ for row in cdata:
 cdata = cdata.drop(['Province', 'Province_FR'], axis = 1)
 cdata.rename(columns={'Province_ENG': 'Province'}, inplace = True)
 
-# change day/month/year to date format using datetime package
-cdata['Submission Date'] = pd.to_datetime(cdata['Submission Date'], errors='coerce', yearfirst = True)
-cdata['Date Submitted'] =  cdata['Submission Date'].dt.strftime('%Y-%m-%d')
-
-#reorder Date Submitted to front of table
-cols = cdata.columns.tolist() #create list of all existing columns
-n = int(cols.index('Date Submitted')) # define variable for index entry of Data Submitted
-cols = [cols[n]] + cols[:n] + cols[n+1:] # redefine cols to begin with above variable, and then include all other variables.
-cdata = cdata[cols] #apply transformations to dataset
+# rename date column to correspond with Power BI dashboard
+cdata = cdata.rename({'Submission Date':'Date Submitted'}, axis=1)
 
 #---------------------------------------------------------------------------------------------------------------------------
 # Create Bins
 # Helps for PowerBI visualizations (instead of manually creating bins within PowerBI)
+# Dates Submitted (bins) not read properly in PowerBI, must be done within PowerBI.
 #---------------------------------------------------------------------------------------------------------------------------
-
-# 'Date Submitted (bins)'
-cdata['Date Submitted (bins)'] = cdata['Submission Date'].dt.strftime('%Y-%m')
-cdata = cdata.drop(['Submission Date'], axis = 1)
 
 # 'Quantity (groups)'
 cdata['Quantity (groups)'] = cdata['Quantity'].mask(cdata['Quantity'] > 30, 'Over 30g')\
@@ -95,8 +85,27 @@ for row in cdata:
 
 cdata['Source (groups)'] = cdata['Source (groups)'].replace(['Other '], 'Illegal Sources')\
                                                    .replace(['A federal', 'A government'], 'Legal Sources')
-                          
+                                              
 cdata = cdata.drop(['Source_Discard'], axis = 1)
+
+#reorder groups to correspond with source columns
+cols = cdata.columns.tolist() #create list of all existing columns
+cols = [cols[cols.index('Date Submitted')]] +\
+       [cols[cols.index('Quantity')]] +\
+       [cols[cols.index('Quantity (groups)')]] +\
+       [cols[cols.index('Price')]] +\
+       [cols[cols.index('Price (groups)')]] +\
+       [cols[cols.index('Expenditure')]] +\
+       [cols[cols.index('Purpose')]] +\
+       [cols[cols.index('Usage')]] +\
+       [cols[cols.index('Source')]] +\
+       [cols[cols.index('Source (groups)')]] +\
+       [cols[cols.index('Sex at birth')]] +\
+       [cols[cols.index('First time')]] +\
+       [cols[cols.index('Census subdivision')]] +\
+       [cols[cols.index('Province')]] +\
+       [cols[cols.index('Province (groups)')]]
+cdata = cdata[cols] #apply transformations to dataset
 
 #---------------------------------------------------------------------------------------------------------------------------
 # Export
@@ -118,43 +127,41 @@ worksheet = writer.sheets['StatsCannabis']
 
 # set column sizes
 worksheet.set_column('A:B', 16) # Date Submitted
-worksheet.set_column('B:C', 15) # Expenditure
-worksheet.set_column('C:D', 12) # Quantity
+worksheet.set_column('B:C', 12) # Quantity
+worksheet.set_column('C:D', 20) # Quantity (groups)
 worksheet.set_column('D:E', 12) # Price
-worksheet.set_column('E:F', 20) # Purpose
-worksheet.set_column('F:G', 15) # Usage
-worksheet.set_column('G:H', 15) # Source
-worksheet.set_column('H:I', 15) # Sex at birth
-worksheet.set_column('I:J', 15) # First time
-worksheet.set_column('J:K', 20) # Census subdivision
-worksheet.set_column('K:L', 15) # Province
-worksheet.set_column('L:M', 22) # Date Submitted (bins)
-worksheet.set_column('M:N', 20) # Quantity (groups)
-worksheet.set_column('N:O', 20) # Price (groups)
-worksheet.set_column('O:P', 18) # Province (groups)
-worksheet.set_column('P:Q', 16) # #Source (groups)
-                                       
+worksheet.set_column('E:F', 20) # Price (groups)
+worksheet.set_column('F:G', 15) # Expenditure
+worksheet.set_column('G:H', 20) # Purpose
+worksheet.set_column('H:I', 15) # Usage
+worksheet.set_column('I:J', 15) # Source
+worksheet.set_column('J:K', 16) # Source (groups)
+worksheet.set_column('K:L', 15) # Sex at birth
+worksheet.set_column('L:M', 15) # First time
+worksheet.set_column('M:N', 20) # Census subdivision
+worksheet.set_column('N:O', 18) # Province (groups)
+worksheet.set_column('O:P', 15) # Province
+
 options = {'style': 'Table Style Dark 10',
            'columns': [{'header': 'Date Submitted'},
-                       {'header': 'Expenditure'},
                        {'header': 'Quantity'},
+                       {'header': 'Quantity (groups)'},
                        {'header': 'Price'},
+                       {'header': 'Price (groups)'},
+                       {'header': 'Expenditure'},
                        {'header': 'Purpose'},
                        {'header': 'Usage'},
                        {'header': 'Source'},
+                       {'header': 'Source (groups)'},
                        {'header': 'Sex at birth'},
                        {'header': 'First time'},
                        {'header': 'Census subdivision'},
                        {'header': 'Province'},
-                       {'header': 'Date Submitted (bins)'},
-                       {'header': 'Quantity (groups)'},
-                       {'header': 'Price (groups)'},
                        {'header': 'Province (groups)'},
-                       {'header': 'Source (groups)'},
                        ]} 
 
-# convert to table using above options dictionary
-worksheet.add_table('A1:P22000', options)
+ #always cdata row count +1 (A1:O20637)
+worksheet.add_table('A1:O22000', options)
     
-# close the pandas Excel writer and output the Excel file.
+# Close the Pandas Excel writer and output the Excel file.
 writer.save()
