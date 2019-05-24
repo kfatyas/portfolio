@@ -11,7 +11,7 @@
 import pandas as pd
 
 # skiprows removes pre-table text, allows us to start with our data features as column headers.
-cdata = pd.read_csv('May13_PRE.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
+cdata = pd.read_csv('May13_PRE.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1') # encoding option is for special characters (accents, etc)
 
 # remove outliers
 cdata = cdata[cdata['Outlier'] != 1]
