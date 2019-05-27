@@ -94,4 +94,10 @@ cdata <- subset(cdata, select = -Source.temp)
 # Export
 #---------------------------------------------------------------------------------------------------------------------------
 
+#reorder groups to correspond with source columns & define column names
+
+col_order <- c('Submission.Date', 'Quantity', 'Quantity.binned', 'Price', 'Price.binned', 'Expenditure', 'Purpose', 'Usage',
+               'Source', 'Source.binned', 'Sex.at.birth', 'First.time', 'Census.subdivision', 'Province', 'Province.binned')
+cdata <- cdata[, col_order]
+
 write_xlsx(cdata, path = 'CanAcqRCleaned.xlsx', col_names = TRUE, format_headers = TRUE) #saves to your working directory
