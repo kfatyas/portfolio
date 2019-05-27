@@ -39,6 +39,11 @@ cdata['Usage'] = cdata['Usage'].replace(['A few times per week'], 'Weekly')
 cdata['Usage'] = cdata['Usage'].replace(['A few times per month'], 'Monthly')
 cdata['Usage'] = cdata['Usage'].replace(['A few times a year'], 'Yearly')
 
+# replace purpose for medical, recreational
+cdata['Purpose'] = cdata['Purpose'].replace(['Medicate - with a medical document'], 'Medication')
+cdata['Purpose'] = cdata['Purpose'].replace(['Medicate - without a medical document'], 'Medication')
+cdata['Purpose'] = cdata['Purpose'].replace(['Use recreationally'], 'Recreation')
+
 # replace QC, BC, NB, PEI, NS, NFL, NWT - needed to properly identify provinces on PowerBI maps
 for row in cdata:
     provinces = cdata['Province'].str.rsplit(" / ", n = 1, expand = True)
