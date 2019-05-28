@@ -1,4 +1,5 @@
 #---------------------------------------------------------------------------------------------------------------------------
+
 # Cannabis Acquisition Data Cleanup
 # Author: Kevin Fatyas
 # Data Source: https://surveys-enquetes.statcan.gc.ca/cannabis/
@@ -6,18 +7,27 @@
 # Cleaning Stats Cannabis data for interactive reporting.
 # Sample of interactive report can be located in the below:
 # https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
-#---------------------------------------------------------------------------------------------------------------------------
-
-setwd('E:/PowerBI Dashboards/Cannabis Aquisition')
 
 #import packages
-#install.packages('tidyverse') 
-#install.packages('stringr')
-#install.packages('writexl')
+install.packages('tidyverse') 
+install.packages('stringr')
+install.packages('xlsx')
+install.packages('writexl')
+install.packages('data.table')
+install.packages('openxlsx')
+
+#---------------------------------------------------------------------------------------------------------------------------
+
+options(java.parameters = "- Xmx1024m") #otherwise, issues occer at the end when modifying our excel output. If outputting to CSV, disregard.
 
 suppressPackageStartupMessage(library(tidyverse))
 library(stringr)
-library(writexl) #much more useful for a quicker export to excel vs xlsx package
+library(xlsx)
+library(writexl) #much more useful for a quicker export
+library(data.table)
+library(openxlsx)
+
+setwd('E:/PowerBI Dashboards/Cannabis Aquisition')
 
 # skiprows removes pre-table text, allows us to start with our data features as column headers.
 cdata <- read.csv('May13_PRE.csv', skip = 5, na = c('', 'NA'), encoding = 'ISO-8859-1', stringsAsFactors = FALSE)
@@ -33,7 +43,6 @@ cdata <- subset(cdata, Outlier == 0)
 cdata <- subset(cdata, Quantity >= 1 & Quantity <= 99)
 
 # remove columns
-# 'Outlier', 'Consumption', 'Census division', 'Economic region', 'Legal status', 'Census metropolitan area'
 datadrop <- names(cdata) %in% c('Outlier', 'Consumption', 'Legal.status', 'Census.division', 'Economic.region', 'Census.metropolitan.area') 
 cdata <- cdata[!datadrop]
 
@@ -79,6 +88,7 @@ cdata$Province.binned[cdata$Province == 'Yukon' | cdata$Province == 'Northwest T
 # 'Source (groups)'
 # working with partial strings - first splitting a copy of Sources into common sub-strings, then regrouping as done for Provinces
 cropstring <- c('federal-licenced', 'government-licenced', 'Other', 'Not Reported')
+
 cdata$Source.temp <- sapply(cdata$Source, function(x) cropstring[str_detect(x, cropstring)], USE.NAMES = FALSE)
 
 cdata$Source.binned[cdata$Source.temp == 'federal-licenced' | cdata$Source.temp == 'government-licenced'] <- 'Legal Sources'
@@ -86,18 +96,38 @@ cdata$Source.binned[cdata$Source.temp == 'Other'] <- 'Illegal Sources'
 cdata$Source.binned[cdata$Source.temp == 'Not Reported'] <- 'Not Reported'
 cdata <- subset(cdata, select = -Source.temp)
 
-#'Date (bins)'
+# 'Date (bins)'
 #cdata$Dates.binned = cdata$Submission.Date
 #cdata$Dates.binned <- substr(cdata$Dates.binned,4,10) 
 
 #---------------------------------------------------------------------------------------------------------------------------
-# Export
+# Export 
 #---------------------------------------------------------------------------------------------------------------------------
 
-#reorder groups to correspond with source columns & define column names
-
+# reorder groups to correspond with source columns
 col_order <- c('Submission.Date', 'Quantity', 'Quantity.binned', 'Price', 'Price.binned', 'Expenditure', 'Purpose', 'Usage',
                'Source', 'Source.binned', 'Sex.at.birth', 'First.time', 'Census.subdivision', 'Province', 'Province.binned')
+
+col_name <- c('Date Submitted', 'Quantity', 'Quantity (groups)', 'Price', 'Price (groups)', 'Expenditure', 'Purpose', 'Usage',
+              'Source', 'Source (groups)', 'Sex at birth', 'First Time', 'Census Subdivision', 'Province', 'Province (groups)')
+
 cdata <- cdata[, col_order]
 
-write_xlsx(cdata, path = 'CanAcqRCleaned.xlsx', col_names = TRUE, format_headers = TRUE) #saves to your working directory
+# define column names & style
+cdata <- data.table::setnames(cdata, col_order, col_name)
+
+# export & import back to workbook for data manipulation, write_xlsx appears to be faster
+write_xlsx(cdata, path = 'CanAcqRCleaned.xlsx', col_names = TRUE, format_headers = TRUE)
+wb <- loadWorkbook('CanAcqRCleaned.xlsx')
+
+# use openxlsx to define data table and customize
+setColWidths(wb, sheet = 'Sheet1', cols = 1:ncol(cdata), widths = 'auto')
+writeDataTable(wb, sheet = 'Sheet1', cdata, colNames = TRUE, tableStyle = 'TableStyleDark10', withFilter = FALSE, firstColumn = TRUE)
+
+### Excel
+# save workbook with updated changes
+saveWorkbook(wb, 'CanAcqRCleaned.xlsx', overwrite = TRUE)
+wb <- loadWorkbook('CanAcqRCleaned.xlsx') # loaded again after saving as the datatable cannot be overwritten once defined
+
+### CSV
+#write.csv(cdata, 'CanAcqRCleaned.csv')
