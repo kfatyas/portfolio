@@ -13,12 +13,12 @@ import pandas as pd
 # skiprows removes pre-table text, allows us to start with our data features as column headers.
 cdata = pd.read_csv('May13_PRE.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1') # encoding option is for special characters (accents, etc)
 
-# remove outliers
-cdata = cdata[cdata['Outlier'] != 1]
-
 #---------------------------------------------------------------------------------------------------------------------------
 # Data Manipulation
 #---------------------------------------------------------------------------------------------------------------------------
+
+# remove outliers
+cdata = cdata[cdata['Outlier'] != 1]
 
 # change quantity range 1 < x < 99
 cdata['Quantity'] = cdata['Quantity'].where(cdata['Quantity'].between(1, 99))
