@@ -1,0 +1,98 @@
+#---------------------------------------------------------------------------------------------------------------------------
+# Cannabis Acquisition Data Cleanup
+# Author: Kevin Fatyas
+# Data Source: https://surveys-enquetes.statcan.gc.ca/cannabis/
+# 
+# Cleaning Stats Cannabis data for interactive reporting.
+# Sample of interactive report can be located in the below:
+# https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
+#---------------------------------------------------------------------------------------------------------------------------
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# skiprows removes pre-table text, allows us to start with our data features as column headers.
+csource = pd.read_csv('May13_PRE.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
+
+# creating temp index to the front for outlier analysis & perc_match between original and analyzed datasets
+csource['temp_index'] = csource.index
+
+cols = csource.columns.tolist() #create list of all existing columns
+n = int(cols.index('temp_index')) # define variable for index entry of temp_index
+cols = [cols[n]] + cols[:n] + cols[n+1:] # redefine cols to begin with above variable, and then include all other variables.
+csource = csource[cols] #apply transformations to dataset
+
+#---------------------------------------------------------------------------------------------------------------------------
+# Checking for Outliers
+# Stats Canada already omits outliers in the dataset provided. Below is an alternative calculation.
+# #Let's compare the original data set with the data where we filter out outliers.
+#---------------------------------------------------------------------------------------------------------------------------
+
+#WARNING - results in long load times, only uncomment/explore if processors are adequate for large data
+#c_pre = csource[csource[:21520] & csource['Submission Date'] != '17/10/2018'] #pre-legalization
+#c_post = csource[csource[21510:] & csource['Submission Date'] != '16/10/2018'] #post-legalization
+
+# remove outliers
+cdata = csource[csource['Outlier'] != 1]
+coutlier = csource[csource['Outlier'] != 0]
+
+
+plt.title('Observing Quantity vs Price for Cannabis Acquisition')
+plt.scatter(coutlier['Quantity'], coutlier['Price'], alpha = 0.5, color = 'crimson')
+plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
+plt.axis([0, 10000, 0, 100])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.show()
+
+# We need to explore more - How did Stats Canada define outliers? 
+# How close can we get to matching their outlier analysis & why are some extreme values passing through as valid submissions?
+
+#1 - BOXPLOT - lets set a confidence interval that we can explore as we make changes to our conditions
+plt.title('Observing Boxplot for Expenditures ($)')
+plt.boxplot(coutlier['Expenditure'], vert = False)
+plt.show()
+
+plt.title('Observing Boxplot for Expenditures ($) - Max 400')
+coutlier = coutlier[coutlier['Expenditure'] <= 400]
+plt.boxplot(coutlier['Expenditure'], notch = True, vert = False)
+plt.show()
+
+#2 - what are the min and max quantities, prices, expenditures & consumptions StatsCan is accepting in their Outlier analysis?
+cdata = csource[csource['Outlier'] != 1]
+print("Min to Max Values for Quantity, Price, Expenditure & Consumption")
+print("Quantity: " + str(cdata['Quantity'].min()) + " to " + str(cdata['Quantity'].max()))
+print("Price: " + str(cdata['Price'].min()) + " to " + str(cdata['Price'].max()))
+print("Expenditure: " + str(cdata['Expenditure'].min()) + " to " + str(cdata['Expenditure'].max()))
+print("Consumption: " + str(cdata['Consumption'].min()) + " to " + str(cdata['Consumption'].max()))
+
+#3 - calculate a percent difference between our updated searches and the cdata search for Outlier == 0.
+# when we follow the min/maxes from above. What kind of perc. match do we get?
+cdatanew = cdata[:]
+cdatanew['Quantity'] = cdata['Quantity'].where(cdata['Quantity'].between(0.001, 1337))
+cdatanew = cdatanew.dropna(subset = ['Quantity'])
+cdatanew['Price'] = cdata['Price'].where(cdata['Price'].between(2, 20))
+cdatanew = cdatanew.dropna(subset = ['Price'])
+cdatanew['Expenditure'] = cdata['Expenditure'].where(cdata['Expenditure'].between(0.01, 10000.0))
+cdatanew = cdatanew.dropna(subset = ['Expenditure'])
+cdatanew['Consumption'] = cdata['Consumption'].where(cdata['Consumption'].between(0, 500))
+cdatanew = cdatanew.dropna(subset = ['Consumption'])
+
+#percmatch calculation on temp_index between cdata and cdatanew
+plt.title('Observing Quantity vs Price for Cannabis Acquisition')
+
+plt.scatter(coutlier['Quantity'], coutlier['Price'], alpha = 0.9, color = 'crimson')
+plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.9, color = 'teal')
+plt.scatter(cdatanew['Quantity'], cdatanew['Price'], alpha = 0.9, color = 'darkmagenta')
+
+plt.axis([0.001, 1337, 2, 20])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.show()
+#print percmatch
+
+#4 - explore if pre vs post-legalization makes any more sense (create new dataframes)
+
+
+#drop temp_index
