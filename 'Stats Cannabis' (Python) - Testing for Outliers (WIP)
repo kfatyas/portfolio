@@ -1,6 +1,6 @@
 # -*- coding: ISO-8859-1 -*-
 """
-Created on Mon Jun 3 12:04:03 2019
+Created on Mon Jun 10 13:26:03 2019
 Applying Machine Learning to predict outliers based on training dataset
 @author: Kevin Fatyas
 @source: https://surveys-enquetes.statcan.gc.ca/cannabis/
@@ -14,6 +14,9 @@ import pandas as pd
 import sklearn.svm as svm
 from sklearn.model_selection import train_test_split as tts
 from sklearn.metrics import accuracy_score
+#from sklearn import preprocessing    
+#       encoding labels can be done automatically with preprocessing, however causing issues with float values.
+#       dictionaries are easier to define and customize for smaller datasets. preprocessing is worth exploring for exclusively categorical mlearning projects.
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -28,11 +31,14 @@ csource = pd.read_csv('May13_EN.csv', skiprows=5, na_values=['NA'], encoding = '
 #---------------------------------------------------------------------------------------------------------------------------
 
 '''
-Step 1: PLOT DATA
+Step 0: OBSERVATION
 Let's see what our quantity and price data looks like on a scatter plot to explore where our outliers might be.
+We can replace csource with c_pre or c_post to play around with data from before or after cannabis legalization.
 '''
-print("Let's plot quantity vs. price on a scatterplot and visualize where our outliers might be.")
 
+print("\n\nLet's plot quantity vs. price on a scatterplot and visualize where our outliers might be.\n")
+
+# separate outlier data and create scatterplot.
 cdata = csource[csource['Outlier'] != 1]
 coutlier = csource[csource['Outlier'] != 0]
 
@@ -40,20 +46,19 @@ coutlier = csource[csource['Outlier'] != 0]
 plt.title('Observing Quantity vs Price for Cannabis Acquisition')
 plt.scatter(coutlier['Quantity'], coutlier['Price'], alpha = 0.5, color = 'crimson')
 plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
-plt.axis([0, 10000, 0, 100])
+plt.axis([0, 5000, 0, 50])
 plt.xlabel('Quantity (grams)')
 plt.ylabel('Price ($)')
 plt.show()
 
 
-'''
-Step 2: QUESTION THE DATA
-How did StatsCanada define outliers? 
-How close can we get to matching their outlier analysis & why are some extreme values passing through as valid submissions?
-'''
-print("We can see that most valid observations occur within a close range, however some values still appear to be happening at certain extremities in our plot. Why are some of these extreme values passing through as valid submissions? Let's explore using a box plot!")
+# How did StatsCanada define outliers? How close can we get to matching their outlier 
+# analysis & why are some extreme values passing through as valid submissions?
 
-#1 - BOXPLOT - lets set a confidence interval that we can explore as we make changes to our conditions
+print("\n\nWe can see that most valid observations occur within a close range, however some values still appear to be happening at certain extremities in our plot. Why are some of these extreme values passing through as valid submissions? Let's explore using a box plot.\n")
+
+# 1 - BOXPLOT - lets set a confidence interval that we can explore as we make changes 
+# to our conditions
 plt.title('Observing Boxplot for Expenditures ($)')
 plt.boxplot(coutlier['Expenditure'], vert = False)
 plt.show()
@@ -63,9 +68,11 @@ coutlier = coutlier[coutlier['Expenditure'] <= 400]
 plt.boxplot(coutlier['Expenditure'], notch = True, vert = False)
 plt.show()
 
-print("Let's try calculating the min and max values for all float-type features in our data.")
 
-#2 - what are the min and max quantities, prices, expenditures & consumptions StatsCan is accepting in their Outlier analysis?
+# 2 - what are the min and max quantities, prices, expenditures & consumptions 
+# StatsCan is accepting in their Outlier analysis?
+print("\n\nLet's try calculating the min and max values for all float-type features in our data.\n")
+
 cdata = csource[csource['Outlier'] != 1]
 print("Min to Max Values for Quantity, Price, Expenditure & Consumption")
 print("Quantity: " + str(cdata['Quantity'].min()) + " to " + str(cdata['Quantity'].max()))
@@ -74,13 +81,18 @@ print("Expenditure: " + str(cdata['Expenditure'].min()) + " to " + str(cdata['Ex
 print("Consumption: " + str(cdata['Consumption'].min()) + " to " + str(cdata['Consumption'].max()))
 
 
-#3 - calculate a percent difference between our updated searches and the cdata search for Outlier == 0.
+# 3 - calculate a percent difference between our updated searches and the cdata search 
+# for Outlier == 0.
 # when we follow the min/maxes from above. What kind of perc. match do we get?
-datanew = cdata[:]
-cdatanew['Quantity'] = csource['Quantity'].where(csource['Quantity'].between(0.001, 1337))
-cdatanew['Price'] = csource['Price'].where(csource['Price'].between(2, 20))
-cdatanew['Expenditure'] = csource['Expenditure'].where(csource['Expenditure'].between(0.01, 10000.0))
-cdatanew['Consumption'] = csource['Consumption'].where(csource['Consumption'].between(0, 500))
+cdatanew = csource[:]
+cdatanew['Quantity'] = cdatanew['Quantity'].where(cdatanew['Quantity'].between(0.001, 1337))
+cdatanew = cdatanew.dropna(subset = ['Quantity'])
+cdatanew['Price'] = cdatanew['Price'].where(cdatanew['Price'].between(2, 20))
+cdatanew = cdatanew.dropna(subset = ['Price'])
+cdatanew['Expenditure'] = cdatanew['Expenditure'].where(cdatanew['Expenditure'].between(0.01, 10000.0))
+cdatanew = cdatanew.dropna(subset = ['Expenditure'])
+cdatanew['Consumption'] = cdatanew['Consumption'].where(cdatanew['Consumption'].between(0, 500))
+cdatanew = cdatanew.dropna(subset = ['Consumption'])
 
 
 #percmatch calculation between cdata and cdatanew
@@ -94,16 +106,27 @@ plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
 
 plt.subplot(1, 2, 2)
 plt.title('Obs. with Ranges')
-plt.scatter(cdatanew['Quantity'], cdatanew['Price'], alpha = 0.5, color = 'magenta')
+plt.scatter(cdatanew['Quantity'], cdatanew['Price'], alpha = 0.5, color = 'royalblue')
 plt.show()
 
+perc_calc = (max(cdatanew[cdatanew['Outlier'] == 0].count(axis = 'index'))\
+             /(max(cdata.count(axis = 'index')) + max(cdatanew[cdatanew['Outlier'] == 1].count(axis = 'index')))) *100
+perc_calc = round(perc_calc, 2)
+
+# perc_calc
+# numerator: the count of observations where outlier is zero in our rounded data set
+# denominator: the count of all observations in our outlier = 0 data set, added with the 
+#              count of observations where outlier is one in our rounded data set.
+
+print("\n\nPercentage match between outlier & range datasets: " + str(perc_calc) + "%")
+print("\n\nIt looks like simply consolidating our domain and range is not enough! Let's try exploring this further using statistics.\n")
 
 '''
 Step 3: STATISTICAL ANALYSIS
 As per StatsCan: 
-    "performing interquartile  method to group observations into homogeneuous subsets
-    flagging outliers that are further away from the group median then set multiples of the 
-    distances between the median and the first and third quartiles."
+    The interquartile method is used to group observations into homogeneuous subsets, 
+    flagging outliers that are further away from the group median. From here, it then sets 
+    multiples of the distances between the median and the first and third quartiles.'
 '''
 # WIP
 
