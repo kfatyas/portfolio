@@ -14,9 +14,6 @@ import pandas as pd
 import sklearn.svm as svm
 from sklearn.model_selection import train_test_split as tts
 from sklearn.metrics import accuracy_score
-#from sklearn import preprocessing    
-#       encoding labels can be done automatically with preprocessing, however causing issues with float values.
-#       dictionaries are easier to define and customize for smaller datasets. preprocessing is worth exploring for exclusively categorical mlearning projects.
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -33,7 +30,6 @@ csource = pd.read_csv('May13_EN.csv', skiprows=5, na_values=['NA'], encoding = '
 '''
 Step 0: OBSERVATION
 Let's see what our quantity and price data looks like on a scatter plot to explore where our outliers might be.
-We can replace csource with c_pre or c_post to play around with data from before or after cannabis legalization.
 '''
 
 print("\n\nLet's plot quantity vs. price on a scatterplot and visualize where our outliers might be.\n")
