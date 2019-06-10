@@ -122,7 +122,7 @@ print("\n\nPercentage match between outlier & range datasets: " + str(perc_calc)
 print("\n\nIt looks like simply consolidating our domain and range is not enough! Let's try exploring this further using statistics.\n")
 
 '''
-Step 3: STATISTICAL ANALYSIS
+Step 1: STATISTICAL ANALYSIS
 As per StatsCan: 
     The interquartile method is used to group observations into homogeneuous subsets, 
     flagging outliers that are further away from the group median. From here, it then sets 
@@ -132,7 +132,7 @@ As per StatsCan:
 
 
 '''
-Step 4: MACHINE LEARNING
+Step 2: MACHINE LEARNING
 Create randomized training datasets for outlier & non-outlier data
 
 https://www.oreilly.com/ideas/intro-to-scikit-learn
