@@ -1,14 +1,15 @@
 # -*- coding: ISO-8859-1 -*-
 """
 Created on Mon Jun 10 13:26:03 2019
-Applying Machine Learning to predict outliers based on training dataset
+Analyzing outliers using three methods: Scatterplots, Statistics (IQR), and Machine Learning
 @author: Kevin Fatyas
 @source: https://surveys-enquetes.statcan.gc.ca/cannabis/
 
-Sample of interactive report can be located in the below:
+Sample of interactive report can be located at the below URL:
 https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import sklearn.svm as svm
@@ -21,22 +22,21 @@ warnings.filterwarnings("ignore")
 # skiprows removes pre-table text, allows us to start with our data features as column headers.
 csource = pd.read_csv('May13_EN.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
 
-#---------------------------------------------------------------------------------------------------------------------------
-# Checking for Outliers
 # Stats Canada already omits outliers in the dataset provided. Below is an alternative calculation.
-# #Let's compare the original data set with the data where we filter out outliers.
-#---------------------------------------------------------------------------------------------------------------------------
+# Let's compare the original data set with the data where we filter out outliers.
+
+#------------------------------------------------------------------------------
 
 '''
-Step 0: OBSERVATION
+OPTION 1 - SCATTERPLOT OBSERVATIONS
 Let's see what our quantity and price data looks like on a scatter plot to explore where our outliers might be.
 '''
 
 print("\n\nLet's plot quantity vs. price on a scatterplot and visualize where our outliers might be.\n")
 
 # separate outlier data and create scatterplot.
-cdata = csource[csource['Outlier'] != 1]
-coutlier = csource[csource['Outlier'] != 0]
+cdata = csource[csource['Outlier'] == 0]
+coutlier = csource[csource['Outlier'] == 1]
 
 
 plt.title('Observing Quantity vs Price for Cannabis Acquisition')
@@ -68,8 +68,6 @@ plt.show()
 # 2 - what are the min and max quantities, prices, expenditures & consumptions 
 # StatsCan is accepting in their Outlier analysis?
 print("\n\nLet's try calculating the min and max values for all float-type features in our data.\n")
-
-cdata = csource[csource['Outlier'] != 1]
 print("Min to Max Values for Quantity, Price, Expenditure & Consumption")
 print("Quantity: " + str(cdata['Quantity'].min()) + " to " + str(cdata['Quantity'].max()))
 print("Price: " + str(cdata['Price'].min()) + " to " + str(cdata['Price'].max()))
@@ -80,33 +78,37 @@ print("Consumption: " + str(cdata['Consumption'].min()) + " to " + str(cdata['Co
 # 3 - calculate a percent difference between our updated searches and the cdata search 
 # for Outlier == 0.
 # when we follow the min/maxes from above. What kind of perc. match do we get?
-cdatanew = csource[:]
-cdatanew['Quantity'] = cdatanew['Quantity'].where(cdatanew['Quantity'].between(0.001, 1337))
-cdatanew = cdatanew.dropna(subset = ['Quantity'])
-cdatanew['Price'] = cdatanew['Price'].where(cdatanew['Price'].between(2, 20))
-cdatanew = cdatanew.dropna(subset = ['Price'])
-cdatanew['Expenditure'] = cdatanew['Expenditure'].where(cdatanew['Expenditure'].between(0.01, 10000.0))
-cdatanew = cdatanew.dropna(subset = ['Expenditure'])
-cdatanew['Consumption'] = cdatanew['Consumption'].where(cdatanew['Consumption'].between(0, 500))
-cdatanew = cdatanew.dropna(subset = ['Consumption'])
+cdatarange = pd.read_csv('May13_EN.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
+cdatarange['Quantity'] = csource['Quantity'].where(csource['Quantity'].between(0.001, 1337))
+cdatarange = cdatarange.dropna(subset = ['Quantity'])
+cdatarange['Price'] = csource['Price'].where(csource['Price'].between(2, 20))
+cdatarange = cdatarange.dropna(subset = ['Price'])
+cdatarange['Expenditure'] = csource['Expenditure'].where(csource['Expenditure'].between(0.01, 10000.0))
+cdatarange = cdatarange.dropna(subset = ['Expenditure'])
+cdatarange['Consumption'] = csource['Consumption'].where(csource['Consumption'].between(0, 500))
+cdatarange = cdatarange.dropna(subset = ['Consumption'])
 
-
-#percmatch calculation between cdata and cdatanew
-plt.axis([0.001, 1400, 2, 25])
-plt.xlabel('Quantity (grams)')
-plt.ylabel('Price ($)')
+#percmatch calculation between cdata and cdatarange
+fig, axes = plt.subplots(nrows=4, ncols=4)
+fig.tight_layout()
 
 plt.subplot(1, 2, 1)
 plt.title('Obs. with Outliers')
+plt.axis([0.001, 1500, 2, 50])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
 plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
 
 plt.subplot(1, 2, 2)
 plt.title('Obs. with Ranges')
-plt.scatter(cdatanew['Quantity'], cdatanew['Price'], alpha = 0.5, color = 'royalblue')
+plt.axis([0.001, 1500, 2, 50])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.scatter(cdatarange['Quantity'], cdatarange['Price'], alpha = 0.5, color = 'royalblue')
 plt.show()
 
-perc_calc = (max(cdatanew[cdatanew['Outlier'] == 0].count(axis = 'index'))\
-             /(max(cdata.count(axis = 'index')) + max(cdatanew[cdatanew['Outlier'] == 1].count(axis = 'index')))) *100
+perc_calc = (max(cdatarange[cdatarange['Outlier'] == 0].count(axis = 0))\
+             /(max(cdata.count(axis = 0)) + max(cdatarange[cdatarange['Outlier'] == 1].count(axis = 0)))) *100
 perc_calc = round(perc_calc, 2)
 
 # perc_calc
@@ -117,31 +119,104 @@ perc_calc = round(perc_calc, 2)
 print("\n\nPercentage match between outlier & range datasets: " + str(perc_calc) + "%")
 print("\n\nIt looks like simply consolidating our domain and range is not enough! Let's try exploring this further using statistics.\n")
 
+#------------------------------------------------------------------------------
+
 '''
-Step 1: STATISTICAL ANALYSIS
+OPTION 2 - STATISTICAL ANALYSIS USING IQR
 As per StatsCan: 
     The interquartile method is used to group observations into homogeneuous subsets, 
     flagging outliers that are further away from the group median. From here, it then sets 
     multiples of the distances between the median and the first and third quartiles.'
 '''
-# WIP
+csource = pd.read_csv('May13_EN.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
 
+# Some price & quantity values are null or negative, which should not be possible. 
+# Removing observations where this occurs as it interferes with our IQR analysis.
+cdatastat = csource.dropna(subset = ['Quantity', 'Price'])
+cdatastat = cdatastat[cdatastat['Quantity'] > 0]
+cdatastat = cdatastat[cdatastat['Price'] > 0]
+
+
+# Sort values in increasing order for Quantity, Price, Expenditure & Consumption
+statquant = sorted(cdatastat['Quantity'])
+statprice = sorted(cdatastat['Price'])
+statexpen = sorted(cdatastat['Expenditure'])
+
+
+# Calculate first (Q1) and third (Q3) quartiles
+priceq1, priceq3 = np.percentile(statprice, [25,75], interpolation = 'midpoint')
+quantq1, quantq3 = np.percentile(statquant, [25,75], interpolation = 'midpoint')
+expenq1, expenq3 = np.percentile(statexpen, [25,75], interpolation = 'midpoint')
+
+
+# Find Interquartile Range
+priceiqr = priceq3 - priceq1
+quantiqr = quantq3 - quantq1
+expeniqr = expenq3 - expenq1
+
+
+# Find Lower & Upper Bounds
+price_lb = max(priceq1 - (1.5 * priceiqr), 0)
+price_ub = priceq3 + (1.5 * priceiqr)
+quant_lb = max(quantq1 - (1.5 * quantiqr), 0)
+quant_ub = quantq3 + (1.5 * quantiqr)
+expen_lb = max(expenq1 - (1.5 * expeniqr), 0)
+expen_ub = expenq3 + (1.5 * expeniqr)
+
+
+# Omit values that lie outside of our bounds.
+cdatastat = cdatastat.where((cdatastat['Price'] > price_lb) | \
+                            (cdatastat['Price'] < price_ub) | \
+                            (cdatastat['Quantity'] > quant_lb) | \
+                            (cdatastat['Quantity'] < quant_ub) | \
+                            (cdatastat['Expenditure'] > expen_lb) | \
+                            (cdatastat['Expenditure'] < expen_ub))
+
+
+# percmatch calculation between cdata and cdatastat where Outlier == 0 (similar to before)
+cdatastat = cdatastat[cdatastat['Outlier'] == 0]
+fig, axes = plt.subplots(nrows=4, ncols=4)
+fig.tight_layout()
+
+plt.subplot(1, 2, 1)
+plt.title('Obs. with Outliers')
+plt.axis([0.001, 1500, 2, 50])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
+
+plt.subplot(1, 2, 2)
+plt.title('Obs. with IQR Stats')
+plt.axis([0.001, 1500, 2, 50])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.scatter(cdatastat['Quantity'], cdatastat['Price'], alpha = 0.5, color = 'orange')
+plt.show()
+
+perc_calc = (max(cdatastat[cdatastat['Outlier'] == 0].count(axis = 0))\
+             /(max(cdata.count(axis = 0)) + max(cdatastat[cdatastat['Outlier'] == 1].count(axis = 0)))) *100
+perc_calc = round(perc_calc, 2)
+
+print("\n\nPercentage match between outlier and IQR stats datasets: " + str(perc_calc) + "%")
+
+#------------------------------------------------------------------------------
 
 '''
-Step 2: MACHINE LEARNING
+OPTION 3: MACHINE LEARNING WITH LINEAR SVP
 Create randomized training datasets for outlier & non-outlier data
 
 https://www.oreilly.com/ideas/intro-to-scikit-learn
 https://scikit-learn.org/stable/tutorial/basic/tutorial.html
 https://www.dataquest.io/blog/sci-kit-learn-tutorial/
 '''
+csource = pd.read_csv('May13_EN.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
 
 # Select which columns we wish to use for machine learning algorithm:
 def keep_cols(data, keep_these):
     drop_these = list(set(list(data)) - set(keep_these))
     return data.drop(drop_these, axis = 1)
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ASIDE: FIX TEXT COLUMNS, issues with symbology. Regrouped as per below binning
 # These columns will be recoded later
 
@@ -165,7 +240,7 @@ csource['Source'] = csource['Source'].replace(['Other '], 'Illegal Sources')\
                                      .replace(['A federal', 'A government'], 'Legal Sources')
                                               
 csource = csource.drop(['Source_Discard'], axis = 1)
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 cfiltered = csource.pipe(keep_cols, \
             ['Outlier', 'Quantity', 'Price', 'Expenditure', 'Consumption', 'Source', 'Province'])
@@ -191,7 +266,9 @@ cfiltered = cfiltered.replace(transform_dict, inplace = False)
 feature = cfiltered # feature matrix, typically the full dataset we are working with
 target = cfiltered['Outlier'] # target feature we are interested in predicting
 
-source_train, source_test, outlier_train, outlier_test = tts(feature, target, test_size = 0.2, random_state = None)
+source_train, source_test, outlier_train, outlier_test = tts(feature, target, train_size = 0.2, random_state = None)
+
+csource = csource.drop('Outlier', axis = 1)
 
 
 # clf -> classifier, allows us to define the machine learning method we wish to use.
@@ -199,17 +276,24 @@ clf = svm.LinearSVC(random_state = 0)
 
 
 # train & predict data
-pred = clf.fit(source_train, outlier_train)\
+testpred = clf.fit(source_train, outlier_train)\
           .predict(source_test)
 
 
 # check accuracy score of the model
-print("LinearSVC accuracy : ", accuracy_score(outlier_test, pred, normalize = True))
+acc_score = accuracy_score(outlier_test, testpred, normalize = True) * 100
+acc_score = round(acc_score, 2)
+print("LinearSVC accuracy : ", str(acc_score) + "%")
+
+
+# apply prediction to our full dataset (encoded as per cfiltered)
+machpred = clf.fit(source_train, outlier_train)\
+              .predict(cfiltered)
 
 
 # Compare outliers & prediction side-by-side to visualize accuracy
 compare_results = pd.DataFrame()
-compare_results = compare_results.append(source_test)
+compare_results = compare_results.append(cfiltered)
 
 compare_results['Consumption'].replace(inverse_transform_dict, inplace = True) 
 compare_results['Province'].replace(inverse_transform_dict, inplace = True)
@@ -219,4 +303,32 @@ cols_tomove = ['Outlier']
 newcols = (compare_results.columns.drop(cols_tomove).to_list()) + cols_tomove
 compare_results = compare_results[newcols]
 
-compare_results['Predicted Outlier'] = pred
+compare_results['Predicted Outlier'] = machpred
+csource['Outlier'] = machpred
+
+
+# percmatch calculation between cdata and cdatamach (similar to before)
+cdatamach = csource[csource['Outlier'] == 0]
+fig, axes = plt.subplots(nrows = 4, ncols = 4)
+fig.tight_layout()
+
+plt.subplot(1, 2, 1)
+plt.title('Obs. with Outliers')
+plt.axis([0.001, 1500, 2, 50])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
+
+plt.subplot(1, 2, 2)
+plt.title('Obs. with Machine Learning')
+plt.axis([0.001, 1500, 2, 50])
+plt.xlabel('Quantity (grams)')
+plt.ylabel('Price ($)')
+plt.scatter(cdatamach['Quantity'], cdatamach['Price'], alpha = 0.5, color = 'purple')
+plt.show()
+
+perc_calc = (max(csource[csource['Outlier'] == 0].count(axis = 0))\
+             /(max(cdata.count(axis = 0)) + max(csource[csource['Outlier'] == 1].count(axis = 0)))) *100
+perc_calc = round(perc_calc, 2)
+
+print("\n\nPercentage match between outlier and machine learning datasets: " + str(perc_calc) + "%")
