@@ -40,7 +40,7 @@ csource = pd.read_csv(filename, skiprows = 5, na_values = ['NA'], encoding = 'IS
 #---------------------------------------------------------------------------------------------------------------------------
 
 # remove outliers
-cdata = cdata[cdata['Outlier'] != 1]
+cdata = csource[csource['Outlier'] == 0]
 
 # change quantity range 1 < x < 99
 cdata['Quantity'] = cdata['Quantity'].where(cdata['Quantity'].between(1, 99))
