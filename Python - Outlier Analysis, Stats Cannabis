@@ -249,13 +249,17 @@ cfiltered = cfiltered.fillna("Not Reported", inplace = False)
 
 
 # Creating dictionaries for encoding & reverse encoding.
-transform_dict = {'Not Reported': -999, 'Legal Sources': 0, 'Illegal Sources': 1, 'Newfoundland and Labrador': 10, \
- 'Prince Edward Island': 11, 'Nova Scotia': 12, 'New Brunswick': 13, 'Quebec': 24, 'Ontario': 35, 'Manitoba': 46, \
- 'Saskatchewan': 47, 'Alberta': 48, 'British Columbia': 59, 'Yukon': 60, 'Northwest Territories': 61, 'Nunavut': 62}
+transform_dict = {'Not Reported': -999, 'Legal Sources': 0, 'Illegal Sources': 1, \
+                  'Newfoundland and Labrador': 10, 'Prince Edward Island': 11, 'Nova Scotia': 12, \
+                  'New Brunswick': 13, 'Quebec': 24, 'Ontario': 35, 'Manitoba': 46, \
+                  'Saskatchewan': 47, 'Alberta': 48, 'British Columbia': 59, 'Yukon': 60, \
+                  'Northwest Territories': 61, 'Nunavut': 62}
 
-inverse_transform_dict = {-999: 'Not Reported', 0: 'Legal Sources', 1: 'Illegal Sources', 10: 'Newfoundland and Labrador', \
- 11: 'Prince Edward Island', 12: 'Nova Scotia', 13: 'New Brunswick', 24: 'Quebec', 35: 'Ontario', 46: 'Manitoba', \
- 47: 'Saskatchewan', 48: 'Alberta', 59: 'British Columbia', 60: 'Yukon', 61: 'Northwest Territories', 62: 'Nunavut'}
+inverse_transform_dict = {-999: 'Not Reported', 0: 'Legal Sources', 1: 'Illegal Sources', \
+                          10: 'Newfoundland and Labrador', 11: 'Prince Edward Island', 12: 'Nova Scotia', \
+                          13: 'New Brunswick', 24: 'Quebec', 35: 'Ontario', 46: 'Manitoba', \
+                          47: 'Saskatchewan', 48: 'Alberta', 59: 'British Columbia', 60: 'Yukon', \
+                          61: 'Northwest Territories', 62: 'Nunavut'}
 
 
 # Change encoding to defined numbers using above dictionary
@@ -266,12 +270,14 @@ cfiltered = cfiltered.replace(transform_dict, inplace = False)
 feature = cfiltered # feature matrix, typically the full dataset we are working with
 target = cfiltered['Outlier'] # target feature we are interested in predicting
 
-source_train, source_test, outlier_train, outlier_test = tts(feature, target, train_size = 0.2, random_state = None)
 
-csource = csource.drop('Outlier', axis = 1)
+# X_train, X_test, y_train, y_test
+source_train, source_test, outlier_train, outlier_test = tts(feature, target, \
+                                                             train_size = 0.2, random_state = None)
 
 
 # clf -> classifier, allows us to define the machine learning method we wish to use.
+# clf = svm.SVC(kernel = 'linear', C = 1, gamma = 1) 
 clf = svm.LinearSVC(random_state = 0)
 
 
@@ -304,31 +310,40 @@ newcols = (compare_results.columns.drop(cols_tomove).to_list()) + cols_tomove
 compare_results = compare_results[newcols]
 
 compare_results['Predicted Outlier'] = machpred
-csource['Outlier'] = machpred
+csource['Predicted Outlier'] = machpred
+
+
+# Note: We need to account for observations where machine learning predicted incorrectly. We will
+# relabel those as errors in our 'Predicted Outlier' variable.
+
+#csource['Outlier Error'] = np.where(csource['Outlier'] != csource['Predicted Outlier'], 'Error', 'Correct')
+csource['Predicted Outlier'] = np.where(csource['Outlier'] != csource['Predicted Outlier'], -999, csource['Predicted Outlier'])
 
 
 # percmatch calculation between cdata and cdatamach (similar to before)
-cdatamach = csource[csource['Outlier'] == 0]
+cdatamach = csource[csource['Predicted Outlier'] == 0]
 fig, axes = plt.subplots(nrows = 4, ncols = 4)
 fig.tight_layout()
 
 plt.subplot(1, 2, 1)
 plt.title('Obs. with Outliers')
-plt.axis([0.001, 1500, 2, 50])
+plt.axis([0.001, 1500, 2, 25])
 plt.xlabel('Quantity (grams)')
 plt.ylabel('Price ($)')
 plt.scatter(cdata['Quantity'], cdata['Price'], alpha = 0.5, color = 'teal')
 
 plt.subplot(1, 2, 2)
 plt.title('Obs. with Machine Learning')
-plt.axis([0.001, 1500, 2, 50])
+plt.axis([0.001, 1500, 2, 25])
 plt.xlabel('Quantity (grams)')
 plt.ylabel('Price ($)')
 plt.scatter(cdatamach['Quantity'], cdatamach['Price'], alpha = 0.5, color = 'purple')
 plt.show()
 
-perc_calc = (max(csource[csource['Outlier'] == 0].count(axis = 0))\
-             /(max(cdata.count(axis = 0)) + max(csource[csource['Outlier'] == 1].count(axis = 0)))) *100
+perc_calc = (max(csource[csource['Predicted Outlier'] == 0].count(axis = 0))\
+             /(max(cdata.count(axis = 0)) + \
+               max(csource[csource['Predicted Outlier'] == 1].count(axis = 0)) + \
+               max(csource[csource['Predicted Outlier'] == -999].count(axis = 0)))) * 100
 perc_calc = round(perc_calc, 2)
 
 print("\n\nPercentage match between outlier and machine learning datasets: " + str(perc_calc) + "%")
