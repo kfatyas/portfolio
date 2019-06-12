@@ -1,17 +1,39 @@
-#---------------------------------------------------------------------------------------------------------------------------
-# Cannabis Acquisition Data Cleanup
-# Author: Kevin Fatyas
-# Data Source: https://surveys-enquetes.statcan.gc.ca/cannabis/
-# 
-# Cleaning Stats Cannabis data for interactive reporting using pandas.
-# Sample of interactive report can be located in the below:
-# https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
-#---------------------------------------------------------------------------------------------------------------------------
+# -*- coding: ISO-8859-1 -*-
+"""
+Created on Wed May 22 16:11:57 2019
+Cleaning Stats Cannabis data for interactive reporting.
+@author: Kevin Fatyas
+@source: https://surveys-enquetes.statcan.gc.ca/cannabis/data_en.zip
+
+Sample of interactive report can be located at the below URL:
+https://app.powerbi.com/view?r=eyJrIjoiMjdmZDZkNjQtYWJmMS00ZWZhLWEyNzEtZGU4MTU2ODViNzhkIiwidCI6IjA5Mjg0MzdlLTFhZTItNGJhNy1hZmQxLTY5NDhmY2I5MWM0OCJ9
+"""
 
 import pandas as pd
+import requests, zipfile, io, os
 
-# skiprows removes pre-table text, allows us to start with our data features as column headers.
-cdata = pd.read_csv('May13_PRE.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1') # encoding option is for special characters (accents, etc)
+
+# extract data directly from source URL and import into working directory.
+r = requests.get('https://surveys-enquetes.statcan.gc.ca/cannabis/data_en.zip', stream = True)
+z = zipfile.ZipFile(io.BytesIO(r.content))
+z.extractall()
+
+os.remove('Description_en.txt')
+
+requestcheck = r.ok
+filename = str(r.content)
+filename = filename[-87:-74]
+
+print("\nData imported successfully?: " + str(requestcheck) + \
+      "\nFile name: " + str(filename))
+
+# import data from above extraction, allows us to start with our data features as column headers.
+csource = pd.read_csv(filename, skiprows = 5, na_values = ['NA'], encoding = 'ISO-8859-1')
+
+# IN CASE ABOVE DOES NOT WORK, please download dataset from source, 
+# comment out lines 17 to 31 and uncomment below using the correct CSV file name.
+
+# csource = pd.read_csv('Jan01_EN.csv', skiprows=5, na_values=['NA'], encoding = 'ISO-8859-1')
 
 #---------------------------------------------------------------------------------------------------------------------------
 # Data Manipulation
