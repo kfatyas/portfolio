@@ -335,7 +335,7 @@ csource['Predicted Outlier'] = machpred
 # relabel those as errors in our 'Predicted Outlier' variable.
 
 #csource['Outlier Error'] = np.where(csource['Outlier'] != csource['Predicted Outlier'], 'Error', 'Correct')
-csource['Predicted Outlier'] = np.where(csource['Outlier'] != csource['Predicted Outlier'], -999, csource['Predicted Outlier'])
+#csource['Predicted Outlier'] = np.where(csource['Outlier'] != csource['Predicted Outlier'], -999, csource['Predicted Outlier'])
 
 
 # percmatch calculation between cdata and cdatamach (similar to before)
@@ -358,10 +358,9 @@ plt.ylabel('Price ($)')
 plt.scatter(cdatamach['Quantity'], cdatamach['Price'], alpha = 0.5, color = 'purple')
 plt.show()
 
-perc_calc = (max(csource[csource['Predicted Outlier'] == 0].count(axis = 0))\
+perc_calc = (max(cdatamach[cdatamach['Outlier'] == 0].count(axis = 0))\
              /(max(cdata.count(axis = 0)) + \
-               max(csource[csource['Predicted Outlier'] == 1].count(axis = 0)) + \
-               max(csource[csource['Predicted Outlier'] == -999].count(axis = 0)))) * 100
+               max(cdatamach[cdatamach['Outlier'] == 1].count(axis = 0)))) * 100
 perc_calc = round(perc_calc, 2)
 
 print("\n\nPercentage match between outlier and machine learning datasets: " + str(perc_calc) + "%")
