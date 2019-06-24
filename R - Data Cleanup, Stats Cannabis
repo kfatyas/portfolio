@@ -18,7 +18,7 @@ install.packages('openxlsx')
 
 #---------------------------------------------------------------------------------------------------------------------------
 
-options(java.parameters = "- Xmx1024m") #otherwise, issues occer at the end when modifying our excel output. If outputting to CSV, disregard.
+options(java.parameters = "- Xmx1024m") #otherwise, issues occur at the end when modifying our excel output. If outputting to CSV, disregard.
 
 suppressPackageStartupMessage(library(tidyverse))
 library(stringr)
